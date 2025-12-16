@@ -1,10 +1,13 @@
 package com.onepiece.otboo.global.event.listener;
 
+import com.onepiece.otboo.domain.profile.dto.request.ProfileImageUpdatedDto;
 import com.onepiece.otboo.domain.profile.entity.Profile;
 import com.onepiece.otboo.domain.profile.exception.ProfileNotFoundException;
 import com.onepiece.otboo.domain.profile.repository.ProfileRepository;
 import com.onepiece.otboo.global.event.event.ProfileImageReplaceEvent;
+import com.onepiece.otboo.global.sse.SseService;
 import com.onepiece.otboo.global.storage.S3Storage;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -20,6 +23,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class ProfileImageReplaceEventListener {
 
     private final ProfileRepository profileRepository;
+    private final SseService sseService;
     private final S3Storage storage;
 
     @Async("binaryContentExecutor")
@@ -34,6 +38,12 @@ public class ProfileImageReplaceEventListener {
             Profile profile = profileRepository.findByUserId(event.userId())
                 .orElseThrow(() -> new ProfileNotFoundException(event.userId()));
             profile.updateProfileImageUrl(newKey);
+
+            profileRepository.flush();
+
+            String presignedUrl = storage.generatePresignedUrl(newKey);
+            sseService.send(event.userId(), "profiles",
+                new ProfileImageUpdatedDto(event.userId(), presignedUrl, Instant.now()));
 
             // 3) 이전 키 삭제
             String oldKey = event.oldKey();
