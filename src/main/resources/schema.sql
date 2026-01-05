@@ -298,12 +298,16 @@ CREATE TABLE IF NOT EXISTS weather_alert_outboxes
 (
     id          uuid PRIMARY KEY,
     location_id UUID                     NOT NULL,
+    user_id     UUID                     NOT NULL,
+    type        VARCHAR(50)              NOT NULL,
+    alert_date  DATE                     NOT NULL,
     title       VARCHAR(255)             NOT NULL,
     message     TEXT                     NOT NULL,
     status      VARCHAR(20)              NOT NULL DEFAULT 'PENDING',
     created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     FOREIGN KEY (location_id) REFERENCES locations (id) ON DELETE CASCADE,
-    CHECK (status IN ('PENDING', 'SEND', 'FAILED'))
+    CHECK (status IN ('PENDING', 'SENDING', 'SEND', 'FAILED')),
+    CHECK (type IN ('TEMPERATURE_CHANGE', 'WIND_CHANGE', 'PRECIPITATION_CHANGE'))
 );
 
 /*
@@ -315,6 +319,8 @@ CREATE INDEX IF NOT EXISTS idx_feed_comments_feed_created_at ON feed_comments (f
 CREATE INDEX IF NOT EXISTS idx_feed_likes_feed ON feed_likes (feed_id);
 CREATE INDEX IF NOT EXISTS idx_feed_author_created_at ON feeds (author_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_weather_location_time ON weather_data (location_id, forecast_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_weather_alert_outboxes_dedup
+    ON weather_alert_outboxes (user_id, location_id, type, alert_date);
 
 /*
     Batch Job을 커스터마이징하게 되면 batch.jdbc.initialize-schema=always 설정이 동작하지 않을 수 있다.
