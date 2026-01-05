@@ -31,6 +31,7 @@ public class WeatherAlertOutbox extends BaseEntity {
     private UUID userId;
 
     @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
     private WeatherChangeType type;
 
     @Column(nullable = false)
