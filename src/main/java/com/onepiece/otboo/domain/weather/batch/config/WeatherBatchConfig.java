@@ -7,12 +7,12 @@ import com.onepiece.otboo.domain.weather.batch.processor.Weather5DayProcessor;
 import com.onepiece.otboo.domain.weather.batch.reader.QuerydslPagingItemReader;
 import com.onepiece.otboo.domain.weather.batch.tasklet.WeatherAlertSendTasklet;
 import com.onepiece.otboo.domain.weather.batch.writer.WeatherDataWriter;
-import com.onepiece.otboo.domain.weather.entity.Weather;
+import com.onepiece.otboo.domain.weather.dto.data.WeatherBatchResult;
+import com.onepiece.otboo.domain.weather.repository.WeatherAlertOutboxRepository;
 import com.onepiece.otboo.domain.weather.repository.WeatherRepository;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManagerFactory;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -33,6 +33,7 @@ public class WeatherBatchConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final WeatherRepository weatherRepository;
+    private final WeatherAlertOutboxRepository weatherAlertOutboxRepository;
     private final Weather5DayProcessor weather5DayProcessor;
     private final WeatherAlertSendTasklet weatherAlertSendTasklet;
     private final EntityManagerFactory entityManagerFactory;
@@ -48,10 +49,11 @@ public class WeatherBatchConfig {
     @Bean
     public Step collectWeatherStep() {
 
-        ItemWriter<List<Weather>> writer = new WeatherDataWriter(weatherRepository);
+        ItemWriter<WeatherBatchResult> writer =
+            new WeatherDataWriter(weatherRepository, weatherAlertOutboxRepository);
 
         return new StepBuilder("collectWeatherStep", jobRepository)
-            .<Location, List<Weather>>chunk(100, transactionManager)
+            .<Location, WeatherBatchResult>chunk(100, transactionManager)
             .reader(locationItemReader(1000))
             .processor(weather5DayProcessor)
             .writer(writer)
