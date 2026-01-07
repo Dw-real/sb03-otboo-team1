@@ -1,23 +1,18 @@
 package com.onepiece.otboo.domain.weather.batch.tasklet;
 
-import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.onepiece.otboo.domain.notification.enums.AlertStatus;
-import com.onepiece.otboo.domain.profile.entity.Profile;
-import com.onepiece.otboo.domain.profile.fixture.ProfileFixture;
-import com.onepiece.otboo.domain.profile.repository.ProfileRepository;
-import com.onepiece.otboo.domain.user.entity.User;
-import com.onepiece.otboo.domain.user.fixture.UserFixture;
 import com.onepiece.otboo.domain.weather.entity.WeatherAlertOutbox;
+import com.onepiece.otboo.domain.weather.enums.WeatherChangeType;
 import com.onepiece.otboo.domain.weather.repository.WeatherAlertOutboxRepository;
 import com.onepiece.otboo.global.event.event.WeatherChangeEvent;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -39,9 +34,6 @@ class WeatherAlertSendTaskletTest {
     private WeatherAlertOutboxRepository outboxRepository;
 
     @Mock
-    private ProfileRepository profileRepository;
-
-    @Mock
     private ApplicationEventPublisher publisher;
 
     @InjectMocks
@@ -60,18 +52,26 @@ class WeatherAlertSendTaskletTest {
         // then
         assertEquals(RepeatStatus.FINISHED, status);
         verify(outboxRepository).findTop100ByStatus(AlertStatus.PENDING);
-        verifyNoMoreInteractions(outboxRepository, profileRepository, publisher);
     }
 
     @Test
-    void 사용자에게_보낼_알림_생성_후_SENDING_상태로_변경() throws Exception {
+    void PENDING_알림을_가져와_SENDING_상태로_변경하고_이벤트를_발행한다() throws Exception {
 
         // given
+        UUID outboxId1 = UUID.randomUUID();
+        UUID outboxId2 = UUID.randomUUID();
+
         UUID locationId1 = UUID.randomUUID();
         UUID locationId2 = UUID.randomUUID();
 
+        UUID userId1 = UUID.randomUUID();
+        UUID userId2 = UUID.randomUUID();
+
         WeatherAlertOutbox outbox1 = WeatherAlertOutbox.builder()
             .locationId(locationId1)
+            .userId(userId1)
+            .type(WeatherChangeType.WIND_CHANGE)
+            .alertDate(LocalDate.of(2026, 1, 5))
             .title("강풍 주의")
             .message("강풍이 예보되어 있습니다.")
             .status(AlertStatus.PENDING)
@@ -79,48 +79,61 @@ class WeatherAlertSendTaskletTest {
 
         WeatherAlertOutbox outbox2 = WeatherAlertOutbox.builder()
             .locationId(locationId2)
+            .userId(userId2)
+            .type(WeatherChangeType.PRECIPITATION_CHANGE)
+            .alertDate(LocalDate.of(2026, 1, 5))
             .title("폭우 주의")
             .message("폭우가 예보되어 있습니다.")
             .status(AlertStatus.PENDING)
             .build();
 
-        given(outboxRepository.findTop100ByStatus(AlertStatus.PENDING)).willReturn(
-            List.of(outbox1, outbox2));
+        ReflectionTestUtils.setField(outbox1, "id", outboxId1);
+        ReflectionTestUtils.setField(outbox2, "id", outboxId2);
 
-        UUID id1 = UUID.randomUUID();
-        UUID id2 = UUID.randomUUID();
-        UUID id3 = UUID.randomUUID();
-
-        User u1 = UserFixture.createUser("test1@test.com");
-        User u2 = UserFixture.createUser("test2@test.com");
-        User u3 = UserFixture.createUser("test3@test.com");
-        ReflectionTestUtils.setField(u1, "id", id1);
-        ReflectionTestUtils.setField(u2, "id", id2);
-        ReflectionTestUtils.setField(u3, "id", id3);
-
-        Profile p1 = ProfileFixture.createProfile(u1);
-        Profile p2 = ProfileFixture.createProfile(u2);
-        Profile p3 = ProfileFixture.createProfile(u3);
-
-        given(profileRepository.findAllByLocationId(locationId1)).willReturn(List.of(p1, p2));
-        given(profileRepository.findAllByLocationId(locationId2)).willReturn(List.of(p3));
+        given(outboxRepository.findTop100ByStatus(AlertStatus.PENDING))
+            .willReturn(List.of(outbox1, outbox2));
 
         // when
-        RepeatStatus status = tasklet.execute(mock(StepContribution.class),
+        RepeatStatus result = tasklet.execute(mock(StepContribution.class),
             mock(ChunkContext.class));
 
         // then
-        assertEquals(RepeatStatus.CONTINUABLE, status);
-        ArgumentCaptor<List<WeatherAlertOutbox>> captor = ArgumentCaptor.forClass(List.class);
-        verify(outboxRepository).saveAll(captor.capture());
-        List<WeatherAlertOutbox> saved = captor.getValue();
+        assertEquals(RepeatStatus.CONTINUABLE, result);
+
+        // 1) 저장되는 outbox 상태가 SENDING인지
+        ArgumentCaptor<List<WeatherAlertOutbox>> savedCap = ArgumentCaptor.forClass(List.class);
+        verify(outboxRepository).saveAll(savedCap.capture());
+
+        List<WeatherAlertOutbox> saved = savedCap.getValue();
         assertThat(saved).hasSize(2);
-        assertThat(saved).allMatch(x -> x.getStatus() == AlertStatus.SENDING);
-        verify(outboxRepository).findTop100ByStatus(AlertStatus.PENDING);
-        verify(profileRepository).findAllByLocationId(locationId1);
-        verify(profileRepository).findAllByLocationId(locationId2);
-        ArgumentCaptor<WeatherChangeEvent> evtCap = ArgumentCaptor.forClass(
+        assertThat(saved).allMatch(o -> o.getStatus() == AlertStatus.SENDING);
+
+        // 2) 이벤트가 outbox 개수만큼 발행되는지 + payload 검증
+        ArgumentCaptor<WeatherChangeEvent> eventCap = ArgumentCaptor.forClass(
             WeatherChangeEvent.class);
-        verify(publisher, times(3)).publishEvent(any(WeatherChangeEvent.class));
+        verify(publisher, times(2)).publishEvent(eventCap.capture());
+
+        List<WeatherChangeEvent> events = eventCap.getAllValues();
+        assertThat(events).hasSize(2);
+
+        // 이벤트 내용까지 비교
+        WeatherChangeEvent e1 = events.get(0);
+        WeatherChangeEvent e2 = events.get(1);
+
+        assertThat(events).anySatisfy(e -> {
+            assertThat(e.outboxId()).isEqualTo(outboxId1);
+            assertThat(e.userId()).isEqualTo(userId1);
+            assertThat(e.title()).isEqualTo("강풍 주의");
+            assertThat(e.message()).isEqualTo("강풍이 예보되어 있습니다.");
+        });
+
+        assertThat(events).anySatisfy(e -> {
+            assertThat(e.outboxId()).isEqualTo(outboxId2);
+            assertThat(e.userId()).isEqualTo(userId2);
+            assertThat(e.title()).isEqualTo("폭우 주의");
+            assertThat(e.message()).isEqualTo("폭우가 예보되어 있습니다.");
+        });
+
+        verify(outboxRepository).findTop100ByStatus(AlertStatus.PENDING);
     }
 }
