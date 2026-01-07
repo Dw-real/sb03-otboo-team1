@@ -1,8 +1,8 @@
 package com.onepiece.otboo.domain.weather.batch.processor;
 
 import com.onepiece.otboo.domain.location.entity.Location;
+import com.onepiece.otboo.domain.weather.dto.data.WeatherAlertSpec;
 import com.onepiece.otboo.domain.weather.entity.Weather;
-import com.onepiece.otboo.domain.weather.entity.WeatherAlertOutbox;
 import com.onepiece.otboo.domain.weather.enums.WeatherChangeType;
 import com.onepiece.otboo.domain.weather.enums.WindSpeedWord;
 import java.time.LocalDate;
@@ -21,7 +21,7 @@ public class WeatherAlertRuleEngine {
     private static final double RAIN_CRITICAL = 5.0;
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
-    public List<WeatherAlertOutbox> evaluate(Location location, List<Weather> weathers) {
+    public List<WeatherAlertSpec> evaluate(Location location, List<Weather> weathers) {
 
         if (weathers == null || weathers.isEmpty()) {
             return List.of();
@@ -34,7 +34,7 @@ public class WeatherAlertRuleEngine {
                 Collectors.toList()
             ));
 
-        List<WeatherAlertOutbox> result = new ArrayList<>();
+        List<WeatherAlertSpec> result = new ArrayList<>();
 
         for (Map.Entry<LocalDate, List<Weather>> entry : byDate.entrySet()) {
             LocalDate date = entry.getKey();
@@ -50,22 +50,28 @@ public class WeatherAlertRuleEngine {
                 .anyMatch(w -> w.getPrecipitationAmount() >= RAIN_CRITICAL);
 
             if (tempChangeDetected) {
-                result.add(WeatherAlertOutbox.create(
+                result.add(new WeatherAlertSpec(
                     location.getId(),
+                    date,
+                    WeatherChangeType.TEMPERATURE_CHANGE,
                     WeatherChangeType.TEMPERATURE_CHANGE.getTitle(),
                     String.format("%s 기온 변화가 %.1f℃ 이상입니다.", date, TEMP_CRITICAL)
                 ));
             }
             if (strongWindDetected) {
-                result.add(WeatherAlertOutbox.create(
+                result.add(new WeatherAlertSpec(
                     location.getId(),
+                    date,
+                    WeatherChangeType.WIND_CHANGE,
                     WeatherChangeType.WIND_CHANGE.getTitle(),
                     String.format("%s에 강풍 예보가 있습니다. 바람막이나 외투를 챙기세요~!", date)
                 ));
             }
             if (rainDetected) {
-                result.add(WeatherAlertOutbox.create(
+                result.add(new WeatherAlertSpec(
                     location.getId(),
+                    date,
+                    WeatherChangeType.PRECIPITATION_CHANGE,
                     WeatherChangeType.PRECIPITATION_CHANGE.getTitle(),
                     String.format("%s에 강수 소식이 있습니다. 우산을 챙기세요~!", date)
                 ));

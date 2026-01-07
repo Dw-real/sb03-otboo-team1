@@ -1,13 +1,10 @@
 package com.onepiece.otboo.domain.weather.batch.tasklet;
 
 import com.onepiece.otboo.domain.notification.enums.AlertStatus;
-import com.onepiece.otboo.domain.profile.entity.Profile;
-import com.onepiece.otboo.domain.profile.repository.ProfileRepository;
 import com.onepiece.otboo.domain.weather.entity.WeatherAlertOutbox;
 import com.onepiece.otboo.domain.weather.repository.WeatherAlertOutboxRepository;
 import com.onepiece.otboo.global.event.event.WeatherChangeEvent;
 import java.util.List;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.StepContribution;
@@ -23,7 +20,6 @@ import org.springframework.stereotype.Component;
 public class WeatherAlertSendTasklet implements Tasklet {
 
     private final WeatherAlertOutboxRepository outboxRepository;
-    private final ProfileRepository profileRepository;
     private final ApplicationEventPublisher publisher;
 
     @Override
@@ -39,22 +35,14 @@ public class WeatherAlertSendTasklet implements Tasklet {
         }
 
         for (WeatherAlertOutbox outbox : outboxes) {
-            List<Profile> profiles = profileRepository.findAllByLocationId(outbox.getLocationId());
-            UUID outboxId = outbox.getId();
-
-            if (profiles.isEmpty()) {
-                log.warn("[WeatherAlertSendTasklet] 알림 대상 프로필 없음 - outboxId: {}", outboxId);
-                outbox.updateStatus(AlertStatus.FAILED);
-                continue;
-            }
-
             outbox.updateStatus(AlertStatus.SENDING);
-            
-            for (Profile p : profiles) {
-                UUID userId = p.getUser().getId();
-                publisher.publishEvent(new WeatherChangeEvent(outboxId, userId, outbox.getTitle(),
-                    outbox.getMessage()));
-            }
+
+            publisher.publishEvent(new WeatherChangeEvent(
+                outbox.getId(),
+                outbox.getUserId(),
+                outbox.getTitle(),
+                outbox.getMessage()
+            ));
         }
 
         outboxRepository.saveAll(outboxes);
