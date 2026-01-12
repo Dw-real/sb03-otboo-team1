@@ -50,7 +50,7 @@ public class WebClientConfig {
 
     @Bean
     public WebClient kmaApiClient(
-        @Value("${api.weather.service-api-key}") String key,
+        @Value("${api.weather.kma-api-key}") String key,
         HttpClient commonHttpClient
     ) {
         DefaultUriBuilderFactory builder =
@@ -83,7 +83,7 @@ public class WebClientConfig {
 
     @Bean
     public WebClient openWeatherApiClient(
-        @Value("${api.weather.service-api-key}") String key,
+        @Value("${api.weather.open-weather-api-key}") String key,
         HttpClient commonHttpClient
     ) {
         DefaultUriBuilderFactory builder =

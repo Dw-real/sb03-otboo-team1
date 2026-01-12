@@ -88,8 +88,6 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      ssl:
-        enabled: true
   cache:
     type: redis
 
@@ -140,7 +138,8 @@ api:
   kakao:
     rest-api-key: ${REST_API_KEY}
   weather:
-    service-api-key: ${SERVICE_API_KEY}
+    open-weather-api-key: ${OPEN_WEATHER_API_KEY}
+    kma-api-key: ${KMA_API_KEY}
 
 aws:
   storage:
