@@ -176,3 +176,64 @@ async:
       max-size: ${ASYNC_THREAD_POOL_MAIL_CONTENT_MAX_SIZE:4}
       queue-capacity: ${ASYNC_THREAD_POOL_MAIL_CONTENT_QUEUE_CAPACITY:50}
       keep-alive: ${ASYNC_THREAD_POOL_MAIL_CONTENT_KEEP_ALIVE:60}
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        # 실패율 기준
+        failureRateThreshold: 50
+        minimumNumberOfCalls: 20
+
+        # 느린 호출 기준
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 3s
+
+        # 슬라이딩 윈도우
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 150
+
+        # 상태 전환
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 10
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+        # 기록할 예외
+        recordExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+
+    instances:
+      kma:
+        baseConfig: default
+      owm:
+        baseConfig: default
+
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 500ms
+        retryExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+        ignoreExceptions:
+          - java.lang.IllegalArgumentException
+    instances:
+      kma:
+        baseConfig: default
+      owm:
+        baseConfig: default
+
+  thread-pool-bulkhead:
+    configs:
+      default:
+        coreThreadPoolSize: 4
+        maxThreadPoolSize: 8
+        queueCapacity: 50
+        keepAliveDuration: 20s
+    instances:
+      kma:
+        baseConfig: default
+      owm:
+        baseConfig: default
