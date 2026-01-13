@@ -10,7 +10,7 @@ env:
   ECS_CLUSTER: onepiece-devil-cluster
   ECS_SERVICE: onepiece-otboo-app-task-service-jfq7knhu
   ECS_TASK_DEFINITION: onepiece-otboo-app-task
-  CONTAINER_NAME: onepiece-otboo-app
+  CONTAINER_NAME: otboo1
 
 concurrency:
   group: ecs-deploy-${{ github.ref }}
@@ -37,8 +37,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       # ECR 로그인

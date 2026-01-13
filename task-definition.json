@@ -1,0 +1,113 @@
+{
+  "compatibilities": [
+    "EC2",
+    "FARGATE"
+  ],
+  "containerDefinitions": [
+    {
+      "cpu": 256,
+      "environment": [],
+      "environmentFiles": [
+        {
+          "type": "s3",
+          "value": "arn:aws:s3:::clothes-images-onepiece/denvil/.env"
+        }
+      ],
+      "essential": true,
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost/ || exit 1"
+        ],
+        "interval": 30,
+        "retries": 3,
+        "startPeriod": 60,
+        "timeout": 5
+      },
+      "image": "479984738079.dkr.ecr.ap-northeast-2.amazonaws.com/one-piece/otboo:latest",
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/onepiece-otboo-app-task",
+          "awslogs-create-group": "true",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "ecs"
+        },
+        "secretOptions": []
+      },
+      "memory": 512,
+      "mountPoints": [],
+      "name": "otboo1",
+      "portMappings": [
+        {
+          "appProtocol": "http",
+          "containerPort": 80,
+          "hostPort": 80,
+          "name": "otboo1-80-tcp",
+          "protocol": "tcp"
+        }
+      ],
+      "systemControls": [],
+      "ulimits": [],
+      "volumesFrom": []
+    }
+  ],
+  "cpu": "256",
+  "ephemeralStorage": {
+    "sizeInGiB": 21
+  },
+  "executionRoleArn": "arn:aws:iam::479984738079:role/ecsTaskExecutionRole",
+  "family": "onepiece-otboo-app-task",
+  "memory": "512",
+  "networkMode": "awsvpc",
+  "placementConstraints": [],
+  "registeredAt": "2025-10-17T06:49:19.900Z",
+  "registeredBy": "arn:aws:iam::479984738079:root",
+  "requiresAttributes": [
+    {
+      "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+    },
+    {
+      "name": "ecs.capability.execution-role-awslogs"
+    },
+    {
+      "name": "com.amazonaws.ecs.capability.ecr-auth"
+    },
+    {
+      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+    },
+    {
+      "name": "ecs.capability.env-files.s3"
+    },
+    {
+      "name": "ecs.capability.container-health-check"
+    },
+    {
+      "name": "ecs.capability.execution-role-ecr-pull"
+    },
+    {
+      "name": "ecs.capability.extensible-ephemeral-storage"
+    },
+    {
+      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+    },
+    {
+      "name": "ecs.capability.task-eni"
+    },
+    {
+      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
+    }
+  ],
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "revision": 1,
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "status": "ACTIVE",
+  "taskDefinitionArn": "arn:aws:ecs:ap-northeast-2:479984738079:task-definition/onepiece-otboo-app-task:1",
+  "volumes": [],
+  "tags": []
+}

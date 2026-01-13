@@ -168,6 +168,9 @@ dependencies {
     // =================== Integration test ===================
     integrationTestImplementation 'org.springframework.boot:spring-boot-starter-test'
     integrationTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // Resilience4j
+    implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.1.0'
 }
 
 jacoco {
