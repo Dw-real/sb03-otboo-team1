@@ -6,6 +6,10 @@ import com.onepiece.otboo.infra.api.dto.KmaItem;
 import com.onepiece.otboo.infra.api.mapper.OwmToKmaItemMapper;
 import com.onepiece.otboo.infra.converter.LatLonXYConverter;
 import com.onepiece.otboo.infra.converter.LatLonXYConverter.Point;
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
+import io.github.resilience4j.bulkhead.annotation.Bulkhead.Type;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,6 +29,9 @@ public class OpenWeatherProvider implements WeatherProvider {
     private final CacheManager cacheManager;
 
     @Override
+    @Retry(name = "owm")
+    @CircuitBreaker(name = "owm", fallbackMethod = "fallback")
+    @Bulkhead(name = "kma", type = Type.SEMAPHORE)
     public List<KmaItem> fetchLatestItems(double latitude, double longitude) {
 
         Root root = owmClient.get5Day3HourForecast(latitude, longitude);
@@ -51,6 +58,8 @@ public class OpenWeatherProvider implements WeatherProvider {
 
         // KMA 로직과 동등: 중복 제거 (같은 category|fcstDate|fcstTime → base 최신)
         Map<String, KmaItem> dedup = dedupByKeyPreferLatestBase(mapped);
+        log.info("[KMA] 날씨 API 호출");
+
         return new ArrayList<>(dedup.values());
     }
 
@@ -70,5 +79,15 @@ public class OpenWeatherProvider implements WeatherProvider {
             }
         }
         return dedup;
+    }
+
+    private List<KmaItem> fallback(
+        double latitude,
+        double longitude,
+        Throwable ex
+    ) {
+        log.warn("[OWM] fallback 호출 lat={}, lon={}, reason={}",
+            latitude, longitude, ex.toString());
+        return List.of();
     }
 }

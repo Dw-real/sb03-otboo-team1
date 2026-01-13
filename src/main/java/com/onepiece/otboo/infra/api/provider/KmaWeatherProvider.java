@@ -6,6 +6,10 @@ import com.onepiece.otboo.infra.api.dto.BaseDt;
 import com.onepiece.otboo.infra.api.dto.KmaItem;
 import com.onepiece.otboo.infra.converter.LatLonXYConverter;
 import com.onepiece.otboo.infra.converter.LatLonXYConverter.Point;
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
+import io.github.resilience4j.bulkhead.annotation.Bulkhead.Type;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -36,6 +40,9 @@ public class KmaWeatherProvider implements WeatherProvider {
     private static final DateTimeFormatter DATE = DateTimeFormatter.BASIC_ISO_DATE;
 
     @Override
+    @Retry(name = "kma")
+    @CircuitBreaker(name = "kma", fallbackMethod = "fallback")
+    @Bulkhead(name = "kma", type = Type.SEMAPHORE)
     public List<KmaItem> fetchLatestItems(double latitude, double longitude) {
         BaseDt latestBase = resolveLatestBaseToday(); // 오늘 기준으로 잡기
         List<KmaItem> acc = new ArrayList<>();
@@ -82,6 +89,7 @@ public class KmaWeatherProvider implements WeatherProvider {
 
         // 3) 중복 제거: 같은 (category|fcstDate|fcstTime)은 base 최신(=baseDate+baseTime 큰 것)으로
         Map<String, KmaItem> dedup = getStringKmaItemMap(acc);
+        log.info("[KMA] 날씨 API 호출");
 
         return new ArrayList<>(dedup.values());
     }
@@ -148,5 +156,10 @@ public class KmaWeatherProvider implements WeatherProvider {
 
     private static String cacheKey(int nx, int ny, LocalDate baseDate, String baseTime) {
         return String.format("%d:%d:%s:%s", nx, ny, baseDate.format(DATE), baseTime);
+    }
+
+    private List<KmaItem> fallback(double latitude, double longitude, Throwable ex) {
+        log.warn("[KMA] fallback 호출 lat={}, lon={}, reason={}", latitude, longitude, ex.toString());
+        return List.of();
     }
 }
